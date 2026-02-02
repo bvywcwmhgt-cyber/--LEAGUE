@@ -14,24 +14,19 @@ const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(3
 
 function toast(msg){
   const t = $("#toast");
+  if(!t) return;
   t.textContent = msg;
   t.classList.add("show");
   clearTimeout(toast._tm);
-  toast._tm = setTimeout(()=>t.classList.remove("show"), 1500);
+  toast._tm = setTimeout(()=>t.classList.remove("show"), 1600);
 }
+window.addEventListener("error", (e)=>{
+  // visible hint on mobile if JS breaks
+  toast("エラーが発生しました（更新/キャッシュを確認）");
+  console.error(e?.error || e);
+});
 
 function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
-
-function loadState(){
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if(raw){
-    try { return JSON.parse(raw); } catch {}
-  }
-  return seedState();
-}
-function saveState(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
 
 function seedState(){
   const leagueId = uid();
@@ -82,7 +77,15 @@ function seedState(){
   };
 }
 
+function loadState(){
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(raw){
+    try { return JSON.parse(raw); } catch {}
+  }
+  return seedState();
+}
 let state = loadState();
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
 // ---------- Modal ----------
 function openModal(title, bodyNode, footNode){
@@ -100,15 +103,10 @@ function closeModal(){
   $("#modalRoot").classList.add("hidden");
   $("#modalRoot").setAttribute("aria-hidden", "true");
 }
-$("#modalBack").addEventListener("click", closeModal);
-$("#modalClose").addEventListener("click", closeModal);
-document.addEventListener("keydown", (e)=>{ if(e.key==="Escape" && !$("#modalRoot").classList.contains("hidden")) closeModal(); });
-
 
 function openConfirm(title, message, confirmText, onConfirm){
   const body = document.createElement("div");
-  body.innerHTML = `<div class="small">${String(message).replaceAll("
-","<br>")}</div>`;
+  body.innerHTML = `<div class="small">${escapeHtml(String(message)).replaceAll("\\n","<br>")}</div>`;
   const foot = document.createElement("div");
 
   const cancel = document.createElement("button");
@@ -118,7 +116,7 @@ function openConfirm(title, message, confirmText, onConfirm){
 
   const ok = document.createElement("button");
   ok.className = "btn";
-  ok.innerHTML = `<span class="danger">${confirmText}</span>`;
+  ok.innerHTML = `<span class="danger">${escapeHtml(confirmText)}</span>`;
   ok.onclick = () => {
     try { onConfirm(); } finally { closeModal(); }
   };
@@ -209,7 +207,6 @@ function getRankArrow(divId, teamId, newRank){
   if(newRank > prev) return { type:"down", glyph:"▾" };
   return { type:"flat", glyph:"▸" };
 }
-
 function commitLastRanks(divId, standingsRows){
   const season = getActiveSeason();
   season.lastRankByDivTeam[divId] = season.lastRankByDivTeam[divId] || {};
@@ -363,7 +360,6 @@ function render(){
 }
 
 function renderStandings(){
-  const season = getActiveSeason();
   const div = getActiveDiv();
   const body = $("#standingsBody");
   body.innerHTML = "";
@@ -385,6 +381,7 @@ function renderStandings(){
     const pill = document.createElement("div");
     pill.className = "teamPill";
     pill.onclick = () => openTeamModal(div.id, r.teamId);
+
     const logo = document.createElement("div");
     logo.className = "teamLogo";
     if(team?.logoDataUrl){
@@ -433,7 +430,6 @@ function renderStandings(){
     body.appendChild(tr);
   }
 
-  // update last ranks after render (so arrows compare to previous render)
   commitLastRanks(div.id, rows);
   saveState();
 }
@@ -478,11 +474,11 @@ function renderSchedule(){
 
     item.innerHTML = `
       <div class="item__side">
-        <div class="item__team">${home?.name || "Home"}</div>
+        <div class="item__team">${escapeHtml(home?.name || "Home")}</div>
       </div>
-      <div class="badge"><span class="item__score">${scoreText}</span></div>
+      <div class="badge"><span class="item__score">${escapeHtml(scoreText)}</span></div>
       <div class="item__side right">
-        <div class="item__team">${away?.name || "Away"}</div>
+        <div class="item__team">${escapeHtml(away?.name || "Away")}</div>
         <button class="item__btn">入力</button>
       </div>
     `;
@@ -521,11 +517,11 @@ function renderResults(){
     item.className = "item";
     item.innerHTML = `
       <div class="item__side">
-        <div class="item__team">${home?.name || "Home"}</div>
+        <div class="item__team">${escapeHtml(home?.name || "Home")}</div>
       </div>
       <div class="badge"><span class="item__score">${m.homeScore} - ${m.awayScore}</span></div>
       <div class="item__side right">
-        <div class="item__team">${away?.name || "Away"}</div>
+        <div class="item__team">${escapeHtml(away?.name || "Away")}</div>
         <button class="item__btn">編集</button>
       </div>
     `;
@@ -534,7 +530,7 @@ function renderResults(){
   }
 }
 
-// ---------- Modals: Result ----------
+// ---------- Result Modal ----------
 function openResultModal(divId, matchId){
   const season = getActiveSeason();
   const div = getDivById(divId);
@@ -547,15 +543,15 @@ function openResultModal(divId, matchId){
 
   const body = document.createElement("div");
   body.innerHTML = `
-    <div class="small">${div.name} 第${m.round}節</div>
+    <div class="small">${escapeHtml(div.name)} 第${m.round}節</div>
     <div class="hr"></div>
     <div class="grid2">
       <div class="field">
-        <div class="label">${home?.name || "Home"}</div>
+        <div class="label">${escapeHtml(home?.name || "Home")}</div>
         <input class="input" id="homeScore" inputmode="numeric" pattern="[0-9]*" placeholder="0" value="${m.homeScore ?? ""}">
       </div>
       <div class="field">
-        <div class="label">${away?.name || "Away"}</div>
+        <div class="label">${escapeHtml(away?.name || "Away")}</div>
         <input class="input" id="awayScore" inputmode="numeric" pattern="[0-9]*" placeholder="0" value="${m.awayScore ?? ""}">
       </div>
     </div>
@@ -599,7 +595,7 @@ function openResultModal(divId, matchId){
   openModal("結果入力", body, foot);
 }
 
-// ---------- Modals: Team ----------
+// ---------- Team Modal ----------
 function openTeamModal(divId, teamId){
   const div = getDivById(divId);
   const team = teamById(divId, teamId);
@@ -610,7 +606,6 @@ function openTeamModal(divId, teamId){
     .filter(m => m.homeId===teamId || m.awayId===teamId)
     .sort((a,b)=> (b.round-a.round) || (b.createdAt-a.createdAt));
 
-  // stats
   let w=0,d=0,l=0,gf=0,ga=0,pts=0,played=0;
   for(const m of matches){
     if(m.homeScore==null || m.awayScore==null) continue;
@@ -666,10 +661,10 @@ function openTeamModal(divId, teamId){
       row.className = "rowLine";
       row.innerHTML = `
         <div class="rowLineLeft">
-          <div class="small">${div.name} 第${m.round}節</div>
-          <div class="small">${home?.name || "Home"} vs ${away?.name || "Away"}</div>
+          <div class="small">${escapeHtml(div.name)} 第${m.round}節</div>
+          <div class="small">${escapeHtml(home?.name || "Home")} vs ${escapeHtml(away?.name || "Away")}</div>
         </div>
-        <div class="pill">${score}</div>
+        <div class="pill">${escapeHtml(score)}</div>
       `;
       row.onclick = ()=> openResultModal(divId, m.id);
       list.appendChild(row);
@@ -688,12 +683,9 @@ function openTeamModal(divId, teamId){
   btnDelete.innerHTML = `<span class="danger">チーム削除</span>`;
   btnDelete.onclick = () => {
     if(div.teams.length<=2){ toast("最低2チーム必要"); return; }
-    // remove from team list
     div.teams = div.teams.filter(t=>t.id!==teamId);
-    // remove matches involving team
     const season = getActiveSeason();
     season.scheduleByDiv[divId] = (season.scheduleByDiv[divId] || []).filter(m => m.homeId!==teamId && m.awayId!==teamId);
-    // cleanup rank history
     if(season.lastRankByDivTeam?.[divId]) delete season.lastRankByDivTeam[divId][teamId];
     saveState();
     closeModal();
@@ -727,7 +719,7 @@ function openTeamModal(divId, teamId){
   openModal("チーム", body, foot);
 }
 
-// ---------- Modals: Rank Colors ----------
+// ---------- Rank Colors Modal ----------
 function openRankColorModal(){
   const season = getActiveSeason();
   const div = getActiveDiv();
@@ -753,7 +745,7 @@ function openRankColorModal(){
       row.className="rowLine";
       row.innerHTML = `
         <div class="rowLineLeft" style="flex:1">
-          <div class="colorChip" style="background:${r.color}"></div>
+          <div class="colorChip" style="background:${escapeHtml(r.color)}"></div>
           <div style="min-width:0">
             <div class="small">順位 ${r.from} - ${r.to}</div>
             <div class="small muted2">${escapeHtml(r.label || "")}</div>
@@ -797,7 +789,7 @@ function openRankColorModal(){
         </div>
         <div class="field">
           <div class="label">Color</div>
-          <input class="input" id="color" type="color" value="${rule.color}">
+          <input class="input" id="color" type="color" value="${escapeHtml(rule.color)}">
         </div>
       </div>
       <div class="field">
@@ -850,15 +842,12 @@ function openRankColorModal(){
   openModal("順位カラー", body, foot);
 }
 
-// ---------- Modals: Manage ----------
+// ---------- Manage Modal ----------
 function openManageModal(){
   const league = getActiveLeague();
-  const season = getActiveSeason();
-  const div = getActiveDiv();
 
   const body = document.createElement("div");
 
-  // league
   const leagueBox = document.createElement("div");
   leagueBox.innerHTML = `
     <div class="label">リーグ</div>
@@ -899,6 +888,7 @@ function openManageModal(){
       };
       leagueSwitchRow.appendChild(p);
     }
+
     const add = document.createElement("div");
     add.className = "pill";
     add.textContent = "+ リーグ追加";
@@ -937,14 +927,13 @@ function openManageModal(){
     };
     leagueSwitchRow.appendChild(add);
 
-    if(state.leagues.length>1){
+    if(state.leagues.length > 1){
       const del = document.createElement("div");
-      del.className="pill";
+      del.className = "pill";
       del.innerHTML = `<span class="danger">リーグ削除</span>`;
       del.onclick = ()=> {
         const idx = state.leagues.findIndex(x=>x.id===league.id);
-        state.leagues.splice(idx,1);
-        // switch to first
+        state.leagues.splice(idx, 1);
         state.ui.activeLeagueId = state.leagues[0].id;
         const ls = getActiveLeague();
         state.ui.activeSeasonId = ls.seasons[ls.seasons.length-1].id;
@@ -961,18 +950,16 @@ function openManageModal(){
   }
   renderLeagueSwitch();
 
-  // seasons switch
   const seasonBox = document.createElement("div");
   seasonBox.innerHTML = `
     <div class="label">シーズン</div>
     <div class="pillRow" id="seasonRow"></div>
-    <div class="small">※過去シーズンも保持されます</div>
+    <div class="small">※「✕」でシーズン削除（最後の1つは削除不可）</div>
     <div class="hr"></div>
   `;
   body.appendChild(seasonBox);
 
   const seasonRow = $("#seasonRow", seasonBox);
-  
   function renderSeasonRow(){
     seasonRow.innerHTML = "";
     const league = getActiveLeague();
@@ -980,50 +967,47 @@ function openManageModal(){
     const canDelete = seasons.length > 1;
 
     for(const s of seasons){
-      const p = document.createElement("div");
-      p.className = "pill" + (s.id===state.ui.activeSeasonId ? " pill--active" : "");
-      p.style.display = "inline-flex";
-      p.style.alignItems = "center";
-      p.style.gap = "8px";
-      p.style.userSelect = "none";
+      const pill = document.createElement("div");
+      pill.className = "pill" + (s.id===state.ui.activeSeasonId ? " pill--active" : "");
+      pill.style.display = "inline-flex";
+      pill.style.alignItems = "center";
+      pill.style.gap = "8px";
 
-      const label = document.createElement("span");
-      label.textContent = `Season ${s.number}`;
-      p.appendChild(label);
+      const t = document.createElement("span");
+      t.textContent = `Season ${s.number}`;
+      pill.appendChild(t);
 
       if(canDelete){
-        const del = document.createElement("span");
-        del.title = "このSeasonを削除";
-        del.textContent = "✕";
-        del.style.display = "inline-grid";
-        del.style.placeItems = "center";
-        del.style.width = "22px";
-        del.style.height = "22px";
-        del.style.borderRadius = "10px";
-        del.style.border = "1px solid rgba(255,255,255,.12)";
-        del.style.background = "rgba(255,255,255,.04)";
-        del.style.color = "#ff7b7b";
-        del.style.fontWeight = "500";
-        del.style.cursor = "pointer";
+        const x = document.createElement("span");
+        x.textContent = "✕";
+        x.title = "このSeasonを削除";
+        x.style.display = "inline-grid";
+        x.style.placeItems = "center";
+        x.style.width = "22px";
+        x.style.height = "22px";
+        x.style.borderRadius = "10px";
+        x.style.border = "1px solid rgba(255,255,255,.12)";
+        x.style.background = "rgba(255,255,255,.04)";
+        x.style.color = "#ff7b7b";
+        x.style.fontWeight = "500";
+        x.style.cursor = "pointer";
 
-        del.onclick = (ev) => {
+        x.onclick = (ev)=> {
           ev.stopPropagation();
-          const labelTxt = `Season ${s.number}`;
-          openConfirm("シーズン削除",
-            `${labelTxt} を削除します。日程・結果・順位など、このシーズンのデータは全て消えます。\n本当に削除しますか？`,
+          openConfirm(
+            "シーズン削除",
+            `Season ${s.number} を削除します。日程・結果・順位など、このシーズンのデータは全て消えます。\n本当に削除しますか？`,
             "削除する",
-            () => {
+            ()=> {
               const league = getActiveLeague();
               if(league.seasons.length <= 1){ toast("最後のシーズンは削除できません"); return; }
+
               const deletingId = s.id;
-
-              // Keep sorted index to choose next
               const sorted = league.seasons.slice().sort((a,b)=>a.number-b.number);
-              const idx = sorted.findIndex(x=>x.id===deletingId);
+              const idx = sorted.findIndex(ss=>ss.id===deletingId);
 
-              league.seasons = league.seasons.filter(x=>x.id!==deletingId);
+              league.seasons = league.seasons.filter(ss=>ss.id!==deletingId);
 
-              // If we deleted the active season, move active to nearest
               if(state.ui.activeSeasonId === deletingId){
                 const after = league.seasons.slice().sort((a,b)=>a.number-b.number);
                 const next = after[Math.max(0, Math.min(after.length-1, idx-1))] || after[after.length-1];
@@ -1034,17 +1018,15 @@ function openManageModal(){
 
               saveState();
               render();
-              // refresh manage modal view
-              setTimeout(()=> { try{ openManageModal(); }catch{} }, 0);
+              setTimeout(()=>{ try{ openManageModal(); }catch{} }, 0);
               toast("シーズンを削除しました");
             }
           );
         };
-
-        p.appendChild(del);
+        pill.appendChild(x);
       }
 
-      p.onclick = ()=> {
+      pill.onclick = ()=> {
         state.ui.activeSeasonId = s.id;
         state.ui.activeDivId = s.divisions[0]?.id;
         state.ui.scheduleRound = 1;
@@ -1054,7 +1036,7 @@ function openManageModal(){
         openManageModal();
       };
 
-      seasonRow.appendChild(p);
+      seasonRow.appendChild(pill);
     }
 
     const add = document.createElement("div");
@@ -1062,58 +1044,9 @@ function openManageModal(){
     add.textContent = "+ 新シーズン";
     add.onclick = ()=> { createNewSeason(); closeModal(); render(); openManageModal(); };
     seasonRow.appendChild(add);
-  }
-    
-    const add = document.createElement("div");
-    add.className="pill";
-    add.textContent = "+ 新シーズン";
-    add.onclick = ()=> { createNewSeason(); closeModal(); render(); openManageModal(); };
-    seasonRow.appendChild(add);
-
-    if(seasons.length > 1){
-      const del = document.createElement("div");
-      del.className = "pill";
-      del.innerHTML = "<span class=\"danger\">シーズン削除</span>";
-      del.onclick = ()=> {
-        const body = document.createElement("div");
-        body.innerHTML = `
-          <div class="small danger">このシーズンを削除します。</div>
-          <div class="small">日程・結果・順位など全データが完全に消えます。</div>
-          <div class="small">※この操作は取り消せません。</div>
-        `;
-        const foot = document.createElement("div");
-        const cancel = document.createElement("button");
-        cancel.className="btn btn--ghost";
-        cancel.textContent="キャンセル";
-        cancel.onclick=closeModal;
-
-        const ok = document.createElement("button");
-        ok.className="btn";
-        ok.textContent="削除する";
-        ok.onclick=()=>{
-          const idx = league.seasons.findIndex(s=>s.id===state.ui.activeSeasonId);
-          league.seasons.splice(idx,1);
-          const last = league.seasons[league.seasons.length-1];
-          state.ui.activeSeasonId = last.id;
-          state.ui.activeDivId = last.divisions[0]?.id;
-          state.ui.scheduleRound = 1;
-          saveState();
-          closeModal();
-          render();
-          toast("シーズンを削除しました");
-        };
-
-        foot.appendChild(cancel);
-        foot.appendChild(ok);
-        openModal("シーズン削除確認", body, foot);
-      };
-      seasonRow.appendChild(del);
-    }
-
   }
   renderSeasonRow();
 
-  // divisions
   const divBox = document.createElement("div");
   divBox.innerHTML = `
     <div class="label">ディビジョン</div>
@@ -1124,7 +1057,6 @@ function openManageModal(){
   body.appendChild(divBox);
 
   const divList = $("#divList", divBox);
-
   function renderDivList(){
     const season = getActiveSeason();
     divList.innerHTML = "";
@@ -1145,8 +1077,9 @@ function openManageModal(){
         if(season.divisions.length<=1){ toast("最低1ディビジョン必要"); return; }
         season.divisions = season.divisions.filter(x=>x.id!==d.id);
         delete season.scheduleByDiv[d.id];
-        delete season.rankColorRules?.[d.id];
-        delete season.lastRankByDivTeam?.[d.id];
+        if(season.rankColorRules) delete season.rankColorRules[d.id];
+        if(season.lastRankByDivTeam) delete season.lastRankByDivTeam[d.id];
+
         if(state.ui.activeDivId === d.id){
           state.ui.activeDivId = season.divisions[0].id;
           state.ui.scheduleRound = 1;
@@ -1170,7 +1103,6 @@ function openManageModal(){
     toast("追加しました");
   };
 
-  // footer
   const foot = document.createElement("div");
 
   const btnClose = document.createElement("button");
@@ -1182,6 +1114,7 @@ function openManageModal(){
   btnSave.className="btn";
   btnSave.textContent="保存";
   btnSave.onclick = async ()=> {
+    const league = getActiveLeague();
     league.name = $("#leagueNameInput", leagueBox).value.trim() || league.name;
 
     const fileInput = $("#leagueLogoFile", leagueBox);
@@ -1263,7 +1196,6 @@ function openDivisionEditModal(divId){
   btnSave.textContent="保存";
   btnSave.onclick = ()=> {
     div.name = $("#divName", body).value.trim() || div.name;
-    // if active div changed name, update UI
     saveState(); render();
     closeModal(); openManageModal();
     toast("保存しました");
@@ -1281,7 +1213,6 @@ function createNewSeason(){
   const current = getActiveSeason();
   const nextNumber = Math.max(...league.seasons.map(s=>s.number)) + 1;
 
-  // copy league structure (divisions + teams), reset schedule & history
   const newSeason = {
     id: uid(),
     number: nextNumber,
@@ -1370,7 +1301,6 @@ function escapeHtml(str){
     .replaceAll('"',"&quot;")
     .replaceAll("'","&#39;");
 }
-
 function fileToDataUrl(file){
   return new Promise((resolve, reject)=>{
     const reader = new FileReader();
@@ -1380,68 +1310,81 @@ function fileToDataUrl(file){
   });
 }
 
-// ---------- Buttons ----------
-$("#btnManage").onclick = openManageModal;
-$("#btnNewSeason").onclick = ()=>{ createNewSeason(); render(); };
-$("#btnPrevSeason").onclick = ()=> gotoSeason(-1);
-$("#btnNextSeason").onclick = ()=> gotoSeason(1);
+// ---------- Wire up ----------
+function wire(){
+  // modal backdrop/close
+  $("#modalBack")?.addEventListener("click", closeModal);
+  $("#modalClose")?.addEventListener("click", closeModal);
+  document.addEventListener("keydown", (e)=>{ if(e.key==="Escape" && !$("#modalRoot").classList.contains("hidden")) closeModal(); });
 
-$("#btnRankColors").onclick = openRankColorModal;
-$("#btnGenerateSchedule").onclick = openGenerateScheduleModal;
+  $("#btnManage").onclick = openManageModal;
+  $("#btnNewSeason").onclick = ()=>{ createNewSeason(); render(); };
+  $("#btnPrevSeason").onclick = ()=> gotoSeason(-1);
+  $("#btnNextSeason").onclick = ()=> gotoSeason(1);
 
-$("#btnRoundPrev").onclick = ()=>{ state.ui.scheduleRound = Math.max(1, (state.ui.scheduleRound||1)-1); saveState(); renderSchedule(); };
-$("#btnRoundNext").onclick = ()=>{
-  const season = getActiveSeason();
-  const div = getActiveDiv();
-  const matches = season.scheduleByDiv[div.id] || [];
-  const maxRound = matches.length ? Math.max(...matches.map(m=>m.round)) : 1;
-  state.ui.scheduleRound = Math.min(maxRound, (state.ui.scheduleRound||1)+1);
-  saveState(); renderSchedule();
-};
+  $("#btnRankColors").onclick = openRankColorModal;
+  $("#btnGenerateSchedule").onclick = openGenerateScheduleModal;
 
-$("#btnShowAllResults").onclick = ()=>{
-  const season = getActiveSeason();
-  const div = getActiveDiv();
-  const matches = (season.scheduleByDiv[div.id] || []).slice()
-    .sort((a,b)=> (b.round-a.round) || (b.createdAt-a.createdAt));
+  $("#btnRoundPrev").onclick = ()=>{ state.ui.scheduleRound = Math.max(1, (state.ui.scheduleRound||1)-1); saveState(); renderSchedule(); };
+  $("#btnRoundNext").onclick = ()=>{
+    const season = getActiveSeason();
+    const div = getActiveDiv();
+    const matches = season.scheduleByDiv[div.id] || [];
+    const maxRound = matches.length ? Math.max(...matches.map(m=>m.round)) : 1;
+    state.ui.scheduleRound = Math.min(maxRound, (state.ui.scheduleRound||1)+1);
+    saveState(); renderSchedule();
+  };
 
-  const body = document.createElement("div");
-  const list = document.createElement("div");
-  body.appendChild(list);
+  $("#btnShowAllResults").onclick = ()=>{
+    const season = getActiveSeason();
+    const div = getActiveDiv();
+    const matches = (season.scheduleByDiv[div.id] || []).slice()
+      .sort((a,b)=> (b.round-a.round) || (b.createdAt-a.createdAt));
 
-  const completed = matches.filter(m=>m.homeScore!=null && m.awayScore!=null);
-  if(completed.length===0){
-    const p = document.createElement("div");
-    p.className="small";
-    p.textContent="結果がまだありません。";
-    list.appendChild(p);
-  }else{
-    for(const m of completed){
-      const home = teamById(div.id, m.homeId);
-      const away = teamById(div.id, m.awayId);
-      const row = document.createElement("div");
-      row.className="rowLine";
-      row.innerHTML = `
-        <div class="rowLineLeft" style="flex:1">
-          <div class="small">${div.name} 第${m.round}節</div>
-          <div class="small">${home?.name || "Home"} vs ${away?.name || "Away"}</div>
-        </div>
-        <div class="pill">${m.homeScore}-${m.awayScore}</div>
-      `;
-      row.onclick = ()=> openResultModal(div.id, m.id);
-      list.appendChild(row);
+    const body = document.createElement("div");
+    const list = document.createElement("div");
+    body.appendChild(list);
+
+    const completed = matches.filter(m=>m.homeScore!=null && m.awayScore!=null);
+    if(completed.length===0){
+      const p = document.createElement("div");
+      p.className="small";
+      p.textContent="結果がまだありません。";
+      list.appendChild(p);
+    }else{
+      for(const m of completed){
+        const home = teamById(div.id, m.homeId);
+        const away = teamById(div.id, m.awayId);
+        const row = document.createElement("div");
+        row.className="rowLine";
+        row.innerHTML = `
+          <div class="rowLineLeft" style="flex:1">
+            <div class="small">${escapeHtml(div.name)} 第${m.round}節</div>
+            <div class="small">${escapeHtml(home?.name || "Home")} vs ${escapeHtml(away?.name || "Away")}</div>
+          </div>
+          <div class="pill">${m.homeScore}-${m.awayScore}</div>
+        `;
+        row.onclick = ()=> openResultModal(div.id, m.id);
+        list.appendChild(row);
+      }
     }
-  }
 
-  const foot = document.createElement("div");
-  const close = document.createElement("button");
-  close.className="btn";
-  close.textContent="閉じる";
-  close.onclick=closeModal;
-  foot.appendChild(close);
+    const foot = document.createElement("div");
+    const close = document.createElement("button");
+    close.className="btn";
+    close.textContent="閉じる";
+    close.onclick=closeModal;
+    foot.appendChild(close);
 
-  openModal("全結果", body, foot);
-};
+    openModal("全結果", body, foot);
+  };
 
-// Initial render
-render();
+  render();
+}
+
+// run after DOM
+if(document.readyState === "loading"){
+  document.addEventListener("DOMContentLoaded", wire);
+}else{
+  wire();
+}
