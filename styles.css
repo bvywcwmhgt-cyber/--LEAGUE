@@ -102,15 +102,24 @@ body{
   position:sticky;top:0;z-index:1;background:rgba(8,12,24,.95);
   border-bottom:1px solid var(--line);color:var(--muted);font-weight:400;padding:10px 8px;text-align:center;white-space:nowrap
 }
-.table tbody td{border-bottom:1px solid rgba(255,255,255,.05);padding:9px 8px;text-align:center;white-space:nowrap}
+.table tbody td{border-bottom:1px solid rgba(255,255,255,.05);padding:9px 8px;text-align:center;white-space:nowrap;vertical-align:middle}
 .col-team{min-width:220px;text-align:left !important}
-.col-rank{min-width:60px}
 .col-form{min-width:120px}
+.col-rank{min-width:60px; position:relative; text-align:center;}
+.table thead th.col-rank{padding-left:8px; padding-right:8px;}
+.table tbody td.col-rank{padding-left:14px; padding-right:8px;}
 
-.row{position:relative; --rankStrip: transparent;}
-.row::before{
-  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--rankStrip);border-radius:3px
+.table tbody td.col-rank::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:3px;
+  background: var(--rankStrip, transparent);
+  border-radius: 3px;
 }
+
 
 .rankCell{display:flex;align-items:center;justify-content:center;gap:6px}
 .arrow{font-size:12px;font-weight:500;line-height:1;display:inline-block;transform:translateY(-.5px)}
@@ -119,7 +128,7 @@ body{
 .arrow--flat{color:var(--flat)}
 
 .teamPill{
-  display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:12px;
+  display:inline-flex;align-items:center;gap:8px;padding:6px 8px;border-radius:12px;
   border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03);cursor:pointer;width:fit-content
 }
 .teamLogo{width:18px;height:18px;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.05);flex:0 0 auto}
@@ -204,4 +213,25 @@ body{
   .main{grid-template-columns:1fr}
   .list{max-height:40vh}
   .tableWrap{max-height:52vh}
+}
+
+
+/* Alignment fixes for rank & team */
+
+.rankCell{
+  min-height:36px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.col-team{
+  display:table-cell;
+  vertical-align:middle;
+}
+
+.teamPill{
+  min-height:36px;
+  display:flex;
+  align-items:center;
 }

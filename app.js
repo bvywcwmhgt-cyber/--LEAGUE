@@ -972,14 +972,78 @@ function openManageModal(){
   body.appendChild(seasonBox);
 
   const seasonRow = $("#seasonRow", seasonBox);
+  
   function renderSeasonRow(){
     seasonRow.innerHTML = "";
     const league = getActiveLeague();
     const seasons = league.seasons.slice().sort((a,b)=>a.number-b.number);
+    const canDelete = seasons.length > 1;
+
     for(const s of seasons){
       const p = document.createElement("div");
       p.className = "pill" + (s.id===state.ui.activeSeasonId ? " pill--active" : "");
-      p.textContent = `Season ${s.number}`;
+      p.style.display = "inline-flex";
+      p.style.alignItems = "center";
+      p.style.gap = "8px";
+      p.style.userSelect = "none";
+
+      const label = document.createElement("span");
+      label.textContent = `Season ${s.number}`;
+      p.appendChild(label);
+
+      if(canDelete){
+        const del = document.createElement("span");
+        del.title = "このSeasonを削除";
+        del.textContent = "✕";
+        del.style.display = "inline-grid";
+        del.style.placeItems = "center";
+        del.style.width = "22px";
+        del.style.height = "22px";
+        del.style.borderRadius = "10px";
+        del.style.border = "1px solid rgba(255,255,255,.12)";
+        del.style.background = "rgba(255,255,255,.04)";
+        del.style.color = "#ff7b7b";
+        del.style.fontWeight = "500";
+        del.style.cursor = "pointer";
+
+        del.onclick = (ev) => {
+          ev.stopPropagation();
+          const labelTxt = `Season ${s.number}`;
+          openConfirm("シーズン削除",
+            `${labelTxt} を削除します。日程・結果・順位など、このシーズンのデータは全て消えます。\n本当に削除しますか？`,
+            "削除する",
+            () => {
+              const league = getActiveLeague();
+              if(league.seasons.length <= 1){ toast("最後のシーズンは削除できません"); return; }
+              const deletingId = s.id;
+
+              // Keep sorted index to choose next
+              const sorted = league.seasons.slice().sort((a,b)=>a.number-b.number);
+              const idx = sorted.findIndex(x=>x.id===deletingId);
+
+              league.seasons = league.seasons.filter(x=>x.id!==deletingId);
+
+              // If we deleted the active season, move active to nearest
+              if(state.ui.activeSeasonId === deletingId){
+                const after = league.seasons.slice().sort((a,b)=>a.number-b.number);
+                const next = after[Math.max(0, Math.min(after.length-1, idx-1))] || after[after.length-1];
+                state.ui.activeSeasonId = next.id;
+                state.ui.activeDivId = next.divisions[0]?.id;
+                state.ui.scheduleRound = 1;
+              }
+
+              saveState();
+              render();
+              // refresh manage modal view
+              setTimeout(()=> { try{ openManageModal(); }catch{} }, 0);
+              toast("シーズンを削除しました");
+            }
+          );
+        };
+
+        p.appendChild(del);
+      }
+
       p.onclick = ()=> {
         state.ui.activeSeasonId = s.id;
         state.ui.activeDivId = s.divisions[0]?.id;
@@ -989,8 +1053,16 @@ function openManageModal(){
         render();
         openManageModal();
       };
+
       seasonRow.appendChild(p);
     }
+
+    const add = document.createElement("div");
+    add.className="pill";
+    add.textContent = "+ 新シーズン";
+    add.onclick = ()=> { createNewSeason(); closeModal(); render(); openManageModal(); };
+    seasonRow.appendChild(add);
+  }
     
     const add = document.createElement("div");
     add.className="pill";
