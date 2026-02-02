@@ -104,6 +104,30 @@ $("#modalBack").addEventListener("click", closeModal);
 $("#modalClose").addEventListener("click", closeModal);
 document.addEventListener("keydown", (e)=>{ if(e.key==="Escape" && !$("#modalRoot").classList.contains("hidden")) closeModal(); });
 
+
+function openConfirm(title, message, confirmText, onConfirm){
+  const body = document.createElement("div");
+  body.innerHTML = `<div class="small">${String(message).replaceAll("
+","<br>")}</div>`;
+  const foot = document.createElement("div");
+
+  const cancel = document.createElement("button");
+  cancel.className = "btn btn--ghost";
+  cancel.textContent = "キャンセル";
+  cancel.onclick = closeModal;
+
+  const ok = document.createElement("button");
+  ok.className = "btn";
+  ok.innerHTML = `<span class="danger">${confirmText}</span>`;
+  ok.onclick = () => {
+    try { onConfirm(); } finally { closeModal(); }
+  };
+
+  foot.appendChild(cancel);
+  foot.appendChild(ok);
+  openModal(title, body, foot);
+}
+
 // ---------- Getters ----------
 function getActiveLeague(){
   return state.leagues.find(l => l.id === state.ui.activeLeagueId) || state.leagues[0];
@@ -967,11 +991,53 @@ function openManageModal(){
       };
       seasonRow.appendChild(p);
     }
+    
     const add = document.createElement("div");
     add.className="pill";
     add.textContent = "+ 新シーズン";
     add.onclick = ()=> { createNewSeason(); closeModal(); render(); openManageModal(); };
     seasonRow.appendChild(add);
+
+    if(seasons.length > 1){
+      const del = document.createElement("div");
+      del.className = "pill";
+      del.innerHTML = "<span class=\"danger\">シーズン削除</span>";
+      del.onclick = ()=> {
+        const body = document.createElement("div");
+        body.innerHTML = `
+          <div class="small danger">このシーズンを削除します。</div>
+          <div class="small">日程・結果・順位など全データが完全に消えます。</div>
+          <div class="small">※この操作は取り消せません。</div>
+        `;
+        const foot = document.createElement("div");
+        const cancel = document.createElement("button");
+        cancel.className="btn btn--ghost";
+        cancel.textContent="キャンセル";
+        cancel.onclick=closeModal;
+
+        const ok = document.createElement("button");
+        ok.className="btn";
+        ok.textContent="削除する";
+        ok.onclick=()=>{
+          const idx = league.seasons.findIndex(s=>s.id===state.ui.activeSeasonId);
+          league.seasons.splice(idx,1);
+          const last = league.seasons[league.seasons.length-1];
+          state.ui.activeSeasonId = last.id;
+          state.ui.activeDivId = last.divisions[0]?.id;
+          state.ui.scheduleRound = 1;
+          saveState();
+          closeModal();
+          render();
+          toast("シーズンを削除しました");
+        };
+
+        foot.appendChild(cancel);
+        foot.appendChild(ok);
+        openModal("シーズン削除確認", body, foot);
+      };
+      seasonRow.appendChild(del);
+    }
+
   }
   renderSeasonRow();
 
